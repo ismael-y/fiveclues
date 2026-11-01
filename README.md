@@ -1,83 +1,62 @@
-# Hallucination Station
+# Five Clues: World Race
 
-A multiplayer bluffing trivia game built with AI assistance in ChatGPT Work mode.
+A multiplayer country-guessing game created through AI-assisted development with OpenAI Codex.
 
-**Play:** https://hallucinationstation.xyz
+Live game: https://five-clues-world.ishthefish369-2.chatgpt.site
 
-## How to play
+## Gameplay
 
-2–8 players join from their own devices with a room code. No account is required.
-Across five rounds, players write believable fake answers and pick the truth from
-anonymized choices. Find the truth for 2 points; fool another player for 1 point.
-Each player has one optional Call the Bluff token per game: identify a different
-answer as fake for +1, or lose 1 if it is the truth. Tied leaders share the win.
+- 2–8 players join a room using a six-character room code. The host also plays.
+- Each match has 10 rounds with different country entries.
+- Five clues appear in order: food, history, geography, language, and capital.
+- A new clue appears every 15 seconds.
+- The first correct guess wins the round: 5 points at the first clue, then 4, 3, 2, or 1 as more clues appear.
+- Wrong guesses trigger a five-second cooldown. Unanswered rounds award no points.
+- Most points after 10 rounds wins; tied players share the win.
 
-## Features
+The content bank covers 197 country entries with 1,970 clue variants, including 591 regional food clues. The scope includes 193 UN member states, Palestine and Vatican City, plus separately labeled Kosovo and Taiwan. Food traditions can overlap across borders. Country clues rotate on rematches in the same room; capital clues can repeat.
 
-- Server-managed rooms, timers, voting, and scoring
-- 150 randomized questions and persistent question history per host browser
-- Synchronized 3, 2, 1, “Trust no one” opening
-- Original synthesized music with individual device controls and increasing urgency
-- Server-side profanity filtering for nicknames and answers
-- Responsive interface for phones and computers
+## Main source files
+
+- `app/page.tsx`: room creation/joining, game interface, guesses, scoreboard, and results.
+- `app/api/game/route.ts`: server-side room actions and concurrency protection.
+- `lib/game-engine.ts`: timed clue progression, answer normalization, scoring, and match rules.
+- `data/countries.json`: complete clue bank, alternate country names, and reference links.
+- `app/globals.css`: sunny theme, typography, responsive styling, and animations.
+- `components/sunny-scene.tsx`: moving Earth/cloud background and scrolling behavior.
+- `lib/music.ts`: original procedural music generated with the browser Web Audio API.
+- `db/schema.ts`, `lib/game-db.ts`, and `drizzle/`: Cloudflare D1 schema, access, and migrations.
+- `public/`: Earth images, fonts, favicon, and asset notices.
+- `build/`, `scripts/`, and root configuration files: framework/runtime support.
 
 ## Technology
 
-React, TypeScript, Vinext/Vite, Tailwind CSS, Cloudflare Workers, Cloudflare D1,
-and Drizzle migrations. This is a full-stack application; it needs a Worker
-runtime and database. GitHub Pages alone cannot run its multiplayer server.
+React, TypeScript, Vinext, Tailwind CSS, Cloudflare Workers, Cloudflare D1 (SQLite), and Drizzle migrations.
 
-## Local setup
+## Run locally
 
-Install Node.js 22.13 or later and the pnpm version specified in `package.json`.
-From the extracted project folder:
+Requires Node.js 22.13 or newer and pnpm. The package.json specifies the pnpm version.
 
-```sh
-pnpm install --frozen-lockfile
-pnpm build
-```
-
-Initialize the local database once by applying the two migrations in order:
+1. Open a terminal inside this folder.
+2. Install dependencies: `pnpm install`.
+3. Build once: `pnpm build`.
+4. Initialize the local database with the migration command below.
+5. Run `pnpm dev` and open the local address shown in the terminal.
 
 ```sh
-node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file drizzle/0000_organic_roland_deschain.sql
-node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file drizzle/0001_confused_silhouette.sql
-pnpm start
+pnpm exec wrangler d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file drizzle/0000_overjoyed_micromacro.sql
 ```
 
-Open the local URL printed by Wrangler. For development with hot reloading, use
-`pnpm dev` after database setup. Local database state stays in `.wrangler/`.
-These instructions describe the existing build workflow; dependency availability
-and a complete installation on a fresh computer have not been re-tested for this export.
+The multiplayer backend requires a Cloudflare-compatible runtime and a D1 binding named `DB`. GitHub Pages alone cannot run it. Uploading the source to GitHub does not automatically deploy the application.
 
-## Source layout
+To host outside the original Sites project, configure your own D1 database, apply the migration, and bind it as `DB`. No live player data or credentials are included.
 
-- `app/page.tsx` — homepage, lobby, voting, reveals, and scoreboard
-- `app/api/game/route.ts` — room API and validation
-- `lib/game.ts` — phase transitions, scoring, question selection, and player views
-- `lib/moderation.ts` — nickname and answer filtering
-- `components/game/music.tsx` — music synthesis and device controls
-- `db/` and `drizzle/` — database schema and migrations
-- `public/` — artwork and static assets
-- `build/` — required build integration source (not generated output)
+## Upload to GitHub
 
-## Hosting and GitHub
+Extract the ZIP, open the `five-clues-world` folder, and upload its contents to the repository root. `README.md`, `package.json`, `app/`, `data/`, and `public/` should appear directly in the repository. Do not upload node_modules or use the ZIP itself as a substitute for the source files.
 
-The existing deployment is hosted through ChatGPT Sites. `.openai/hosting.json`
-identifies that Site and its logical database binding; it contains no secret.
-Uploading these files to GitHub does not automatically update the live game.
-Do not commit `.env` files, credentials, `node_modules`, `dist`, or local databases.
-The included `.gitignore` excludes these local files.
+## Export notes
 
-To upload using GitHub's website, extract this ZIP first and upload its contents,
-preserving the folders. Do not upload only the ZIP. For larger folder uploads,
-GitHub Desktop is convenient; include the `.openai` folder and `.gitignore`.
+Source snapshot: 13988a786cf5073fe9e7b84e0c6360841779fe91.
 
-## Credits
-
-Questions include adaptations from Open Trivia DB: https://opentdb.com/,
-licensed under CC BY-SA 4.0: https://creativecommons.org/licenses/by-sa/4.0/.
-Preserve source links and attribution when reusing question content. Third-party
-component and build integration licenses remain alongside their respective files.
-
-Exported from source commit: `30e41c54585d588dec34e44704abad0f066a3154`.
+This export includes the game source, required UI components, assets, content bank, database migrations, package lockfile, and framework support. Installed dependencies, generated builds, Git history, local environment files, and unused starter UI/example components are excluded. Original framework setup notes are retained in STARTER.md. The original Sites manifest is included for source completeness; it does not grant access to the hosted project.
