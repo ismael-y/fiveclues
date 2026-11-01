@@ -1,0 +1,20 @@
+import {database} from '@/lib/game-db';
+import bankData from '@/data/countries.json';
+import {Country,Room,advance,startMatch,makeGuess,publicRoom,randomInt} from '@/lib/game-engine';
+const bank=bankData as Country[];
+const failure=(message:string,status=400)=>Response.json({error:message},{status});
+const nameOf=(x:unknown)=>String(x||'').trim().slice(0,20);
+function code(){const alphabet='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';return Array.from({length:6},()=>alphabet[randomInt(alphabet.length)]).join('');}
+export async function POST(req:Request){try{const b=await req.json() as Record<string,unknown>,token=String(b.token||'');if(!/^[\w-]{24,80}$/.test(token))return failure('Invalid player session. Reload to reconnect.');const db=database(),now=Date.now();if(b.action==='create'){const name=nameOf(b.name);if(!name)return failure('Enter your name.');const id=crypto.randomUUID(),r:Room={code:code(),host:id,players:[{id,token,name,score:0,cooldown:0}],phase:'lobby',round:0,deck:[],started:0,revealUntil:0,clues:[],result:null,history:[],variants:{},match:0};await db.prepare('INSERT INTO rooms (code,data,version,expires) VALUES (?,?,0,?)').bind(r.code,JSON.stringify(r),now+86400000).run();return Response.json(publicRoom(r,token,now));}
+const roomCode=String(b.code||'').trim().toUpperCase();for(let attempt=0;attempt<6;attempt++){const row=await db.prepare('SELECT data,version,expires FROM rooms WHERE code=?').bind(roomCode).first<{data:string,version:number,expires:number}>();if(!row||row.expires<now)return failure('Room not found or expired. Check the six-character code.',404);const r:Room=JSON.parse(row.data);let p=r.players.find(p=>p.token===token);let changed=false,feedback:unknown;
+if(b.action==='join'){if(!p){if(r.phase!=='lobby'&&r.phase!=='finished')return failure('This match has started. Join when the 10 rounds are finished.');if(r.players.length>=8)return failure('This room already has eight players.');const name=nameOf(b.name);if(!name)return failure('Enter your name.');if(r.players.some(p=>p.name.toLowerCase()===name.toLowerCase()))return failure('That name is taken. Try another.');p={id:crypto.randomUUID(),token,name,score:0,cooldown:0};r.players.push(p);changed=true;}}
+if(!p)return failure('Join this room first.',403);changed=advance(r,bank,now)||changed;
+if(b.action==='start'){if(r.host!==p.id)return failure('Only the host can start the match.',403);if(!['lobby','finished'].includes(r.phase))return failure('A match is already in progress.');if(r.players.length<2)return failure('You need at least two players.');startMatch(r,bank,now);changed=true;}
+else if(b.action==='guess'){const guess=String(b.guess||'').trim();if(!guess||guess.length>80)return failure('Enter a country name.');if(b.round!==r.round||b.match!==r.match)return failure('That guess was for a previous round.');if(r.phase==='playing'){feedback=makeGuess(r,p,bank,guess,now);changed=true;}else feedback={late:true};}
+else if(b.action==='remove'){if(r.host!==p.id||!['lobby','finished'].includes(r.phase))return failure('Players can only be removed by the host between matches.',403);r.players=r.players.filter(x=>x.id!==b.playerId||x.id===r.host);changed=true;}
+else if(b.action==='leave'){if(!['lobby','finished'].includes(r.phase))return failure('You can leave this room after the match.');r.players=r.players.filter(x=>x.id!==p.id);if(r.host===p.id)r.host=r.players[0]?.id||'';changed=true;}
+else if(!['state','join'].includes(String(b.action)))return failure('Unknown game action.');
+if(changed){const update=await db.prepare('UPDATE rooms SET data=?,version=version+1 WHERE code=? AND version=?').bind(JSON.stringify(r),r.code,row.version).run();if(!update.meta.changes)continue;}
+if(b.action==='leave')return Response.json({left:true});return Response.json({...publicRoom(r,token,now),feedback});}
+return failure('The room is busy. Please try again.',409);
+}catch(e){const message=e instanceof Error?e.message:'';if(['This round is already over.','Wait for your guess cooldown.'].includes(message))return failure(message);console.error(e);return failure('Could not connect to the game. Your room is saved—try again.',503);}}
